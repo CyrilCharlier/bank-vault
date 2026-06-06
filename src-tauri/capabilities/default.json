@@ -1,0 +1,24 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the main window",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default",
+    "fs:allow-write-text-file",
+    "fs:allow-home-write",
+    "fs:allow-read-text-file",
+    {
+      "identifier": "sql:default",
+      "allow": [{ "name": "sqlite:vault.db" }]
+    },
+    {
+      "identifier": "sql:allow-execute",
+      "allow": [{ "name": "sqlite:vault.db" }]
+    }
+  ]
+}

@@ -1,0 +1,218 @@
+@media (max-width: 1320px) {
+  .content-split {
+    grid-template-columns: 1fr;
+  }
+
+  .category-pane {
+    max-height: 260px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .vault-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: auto;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .filters-bar {
+    align-items: flex-start;
+  }
+
+  .search-box.compact {
+    flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .period-controls.enhanced {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .toolbar-brand,
+  .toolbar-context,
+  .toolbar-actions {
+    width: 100%;
+  }
+
+  .toolbar-brand {
+    flex-wrap: wrap;
+  }
+
+  .toolbar-actions {
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1080px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .accounts-pane {
+    grid-template-rows: auto auto auto;
+  }
+
+  .accounts-list {
+    max-height: 360px;
+  }
+}
+
+@media (max-width: 720px) {
+  .account-totals-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  .vault-shell {
+    padding: 12px;
+  }
+
+  .toolbar-segment {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar-cta {
+    width: 100%;
+    min-height: 50px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .filters-bar {
+    padding: 10px;
+  }
+
+  .date-range-group {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .date-field,
+  .select-wrap {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  .transactions-table thead th,
+  .transactions-table tbody td,
+  .sort-button {
+    padding: 12px;
+  }
+
+  .summary-value {
+    font-size: 26px;
+  }
+
+  .pane-header h2,
+  .modal-header h3,
+  .category-pane-header h3,
+  .confirm-card h3 {
+    font-size: 20px;
+  }
+
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar-brand,
+  .toolbar-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbar-nav,
+  .toolbar-segment {
+    width: 100%;
+  }
+
+  .toolbar-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .toolbar-actions {
+    width: 100%;
+  }
+
+  .toolbar-icon-btn,
+  .toolbar-secondary-btn,
+  .toolbar-cta {
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .toast-message {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .vault-shell {
+    gap: 10px;
+  }
+
+  .vault-toolbar,
+  .accounts-pane,
+  .transactions-pane,
+  .modal-card,
+  .confirm-card {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .brand-chip h1 {
+    font-size: 18px;
+  }
+
+  .toolbar-segment {
+    width: 100%;
+  }
+
+  .toolbar-tab {
+    flex: 1 1 0;
+    text-align: center;
+  }
+
+  .modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .modal-actions .ghost-btn,
+  .modal-actions .primary-btn,
+  .modal-actions .danger-btn {
+    width: 100%;
+  }
+
+  .period-controls.enhanced,
+  .card-actions,
+  .table-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-box.compact {
+    min-width: 100%;
+  }
+
+  .cleared-field {
+    grid-template-columns: 36px minmax(0, 1fr) 36px;
+    gap: 10px;
+    padding: 8px;
+  }
+}
