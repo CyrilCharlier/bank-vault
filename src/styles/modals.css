@@ -452,6 +452,42 @@
   line-height: 1.2;
 }
 
+.modal-card.wide.budget-modal {
+  width: min(980px, 100%);
+  max-height: min(88vh, 920px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.budget-modal .modal-header,
+.budget-modal .budget-summary-bar,
+.budget-modal .modal-actions {
+  flex-shrink: 0;
+}
+
+.budget-modal .stack-form {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.budget-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(114, 150, 235, 0.1);
+  background: rgba(8, 15, 31, 0.52);
+}
+
+.budget-modal .modal-actions {
+  padding-top: 12px;
+}
+
 @media (max-width: 860px) {
   .budget-toolbar {
     flex-direction: column;
@@ -496,11 +532,17 @@
 @media (max-width: 780px) {
   .budget-modal {
     width: 100%;
+    max-height: 92vh;
+  }
+
+  .budget-modal .stack-form {
+    min-height: 0;
   }
 
   .budget-table-wrap {
+    flex: 1;
+    min-height: 0;
     max-height: none;
-    flex: initial;
   }
 }
 
