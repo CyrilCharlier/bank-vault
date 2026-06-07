@@ -14,9 +14,13 @@ import type {
 
 let dbPromise: Promise<Database> | null = null;
 
+function getDatabaseUrl() {
+  return import.meta.env.DEV ? "sqlite:vault.dev.db" : "sqlite:vault.db";
+}
+
 async function getDb() {
   if (!dbPromise) {
-    dbPromise = Database.load("sqlite:vault.db");
+    dbPromise = Database.load(getDatabaseUrl());
   }
 
   const db = await dbPromise;
