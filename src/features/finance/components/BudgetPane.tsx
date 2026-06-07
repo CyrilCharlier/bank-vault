@@ -31,6 +31,18 @@ function isSameMonth(dateIso: string, year: number, monthIndex: number) {
   return d.getFullYear() === year && d.getMonth() === monthIndex;
 }
 
+type BudgetCategoryRow = {
+  categoryId: string;
+  categoryName: string;
+  annualBudget: number | null;
+  monthlyBudget: number | null;
+  netThisMonth: number;
+  netYearToDate: number;
+  budgetActualThisMonth: number;
+  monthlyDelta: number | null;
+  monthlyUsageRatio: number | null;
+};
+
 export function BudgetPane({
   accounts,
   categories,
@@ -60,13 +72,11 @@ export function BudgetPane({
       .map((budget) => [budget.categoryId, budget])
   );
 
-  const expensesThisMonthByCategory = new Map<string, number>();
-  const expensesYearToDateByCategory = new Map<string, number>();
-  const totalExpensesThisMonthByCategoryName = new Map<string, number>();
+  const netThisMonthByCategory = new Map<string, number>();
+  const netYearToDateByCategory = new Map<string, number>();
+  const totalNetThisMonthByCategoryName = new Map<string, number>();
 
   for (const tx of transactions) {
-    if (tx.amount >= 0) continue;
-
     const txDate = new Date(tx.date);
     if (txDate.getFullYear() !== year) continue;
 
@@ -76,38 +86,19 @@ export function BudgetPane({
       categoriesById.get(categoryId)?.name ||
       "Non classée";
 
-    const absoluteAmount = Math.abs(tx.amount);
+    const amount = tx.amount;
 
-    const currentYearToDate =
-      expensesYearToDateByCategory.get(categoryId) ?? 0;
-    expensesYearToDateByCategory.set(
-      categoryId,
-      currentYearToDate + absoluteAmount
-    );
+    const currentYearToDate = netYearToDateByCategory.get(categoryId) ?? 0;
+    netYearToDateByCategory.set(categoryId, currentYearToDate + amount);
 
     if (!isSameMonth(tx.date, year, referenceMonthIndex)) continue;
 
-    const currentMonth = expensesThisMonthByCategory.get(categoryId) ?? 0;
-    expensesThisMonthByCategory.set(categoryId, currentMonth + absoluteAmount);
+    const currentMonth = netThisMonthByCategory.get(categoryId) ?? 0;
+    netThisMonthByCategory.set(categoryId, currentMonth + amount);
 
-    const currentByName =
-      totalExpensesThisMonthByCategoryName.get(categoryName) ?? 0;
-    totalExpensesThisMonthByCategoryName.set(
-      categoryName,
-      currentByName + absoluteAmount
-    );
+    const currentByName = totalNetThisMonthByCategoryName.get(categoryName) ?? 0;
+    totalNetThisMonthByCategoryName.set(categoryName, currentByName + amount);
   }
-
-  type BudgetCategoryRow = {
-    categoryId: string;
-    categoryName: string;
-    annualBudget: number | null;
-    monthlyBudget: number | null;
-    spentThisMonth: number;
-    spentYearToDate: number;
-    monthlyDelta: number | null;
-    monthlyUsageRatio: number | null;
-  };
 
   const allCategoryIds = new Set<string>();
 
@@ -115,11 +106,11 @@ export function BudgetPane({
     allCategoryIds.add(category.id);
   }
 
-  for (const [categoryId] of expensesThisMonthByCategory) {
+  for (const [categoryId] of netThisMonthByCategory) {
     allCategoryIds.add(categoryId);
   }
 
-  for (const [categoryId] of expensesYearToDateByCategory) {
+  for (const [categoryId] of netYearToDateByCategory) {
     allCategoryIds.add(categoryId);
   }
 
@@ -140,17 +131,29 @@ export function BudgetPane({
     const budget = budgetsByCategory.get(categoryId) ?? null;
     const annualBudget = budget ? budget.annualAmount : null;
     const monthlyBudget = annualBudget !== null ? annualBudget / 12 : null;
-    const spentThisMonth = expensesThisMonthByCategory.get(categoryId) ?? 0;
-    const spentYearToDate = expensesYearToDateByCategory.get(categoryId) ?? 0;
+
+    const netThisMonth = netThisMonthByCategory.get(categoryId) ?? 0;
+    const netYearToDate = netYearToDateByCategory.get(categoryId) ?? 0;
+
+    const hasBudget = monthlyBudget !== null;
+    const hasActivityThisMonth = netThisMonth !== 0;
+    const hasActivityYearToDate = netYearToDate !== 0;
+
+    if (!hasBudget && !hasActivityThisMonth && !hasActivityYearToDate) {
+      continue;
+    }
+
+    const budgetActualThisMonth =
+      netThisMonth < 0 ? Math.abs(netThisMonth) : netThisMonth;
 
     let monthlyDelta: number | null = null;
     if (monthlyBudget !== null) {
-      monthlyDelta = monthlyBudget - spentThisMonth;
+      monthlyDelta = monthlyBudget - budgetActualThisMonth;
     }
 
     let monthlyUsageRatio: number | null = null;
-    if (monthlyBudget !== null && monthlyBudget > 0) {
-      monthlyUsageRatio = spentThisMonth / monthlyBudget;
+    if (monthlyBudget !== null && monthlyBudget !== 0) {
+      monthlyUsageRatio = budgetActualThisMonth / monthlyBudget;
     }
 
     budgetRows.push({
@@ -158,8 +161,9 @@ export function BudgetPane({
       categoryName,
       annualBudget,
       monthlyBudget,
-      spentThisMonth,
-      spentYearToDate,
+      netThisMonth,
+      netYearToDate,
+      budgetActualThisMonth,
       monthlyDelta,
       monthlyUsageRatio,
     });
@@ -181,8 +185,8 @@ export function BudgetPane({
     0
   );
 
-  const totalExpensesThisMonth = Array.from(
-    totalExpensesThisMonthByCategoryName.values()
+  const totalNetThisMonth = Array.from(
+    totalNetThisMonthByCategoryName.values()
   ).reduce((sum, value) => sum + value, 0);
 
   const currentMonthLabel = new Intl.DateTimeFormat(userLocales, {
@@ -240,18 +244,23 @@ export function BudgetPane({
           </div>
 
           <div className="panel-card budget-kpi-inline-card">
-            <span className="budget-kpi-inline-label">
-              Dépenses du mois
-            </span>
-            <strong className="budget-kpi-inline-value negative">
-              {formatCurrency(-totalExpensesThisMonth)}
+            <span className="budget-kpi-inline-label">Net catégorisé du mois</span>
+            <strong
+              className={[
+                "budget-kpi-inline-value",
+                totalNetThisMonth < 0 ? "negative" : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {formatCurrency(totalNetThisMonth)}
             </strong>
           </div>
 
           <div className="panel-card budget-kpi-inline-card">
             <span className="budget-kpi-inline-label">Catégories actives</span>
             <strong className="budget-kpi-inline-value">
-              {totalExpensesThisMonthByCategoryName.size}
+              {budgetRows.length}
             </strong>
           </div>
         </div>
@@ -263,8 +272,8 @@ export function BudgetPane({
             <h3>Détails par catégorie</h3>
             <p>
               Pour {currentMonthLabel}. Le budget mensuel est calculé à partir du
-              budget annuel / 12, et tous les indicateurs affichés pilotent le
-              mois de référence.
+              budget annuel / 12. Les montants affichés sont nets sur la catégorie :
+              une entrée positive augmente le réalisé, une sortie négative le réduit.
               {!isCurrentYearView
                 ? ` Ici, tu compares ${currentMonthLabel} avec les budgets de ${year}.`
                 : ""}
@@ -279,9 +288,9 @@ export function BudgetPane({
                 <th>Catégorie</th>
                 <th>Budget annuel</th>
                 <th>Budget mensuel</th>
-                <th>Dépensé ce mois</th>
+                <th>Réalisé ce mois</th>
                 <th>Écart mensuel</th>
-                <th>Consommé du mois</th>
+                <th>Progression du mois</th>
               </tr>
             </thead>
 
@@ -330,10 +339,18 @@ export function BudgetPane({
                       monthlyUsageStatus = "over";
                     } else if (row.monthlyUsageRatio >= 0.8) {
                       monthlyUsageStatus = "warning";
-                    } else {
+                    } else if (row.monthlyUsageRatio >= 0) {
                       monthlyUsageStatus = "ok";
                     }
                   }
+
+                  const realizedCellClass =
+                    row.netThisMonth < 0 ? "budget-cell-negative" : "";
+
+                  const deltaCellClass =
+                    row.monthlyDelta !== null && row.monthlyDelta < 0
+                      ? "budget-cell-over"
+                      : "budget-cell-ok";
 
                   return (
                     <tr
@@ -397,13 +414,11 @@ export function BudgetPane({
                           : "—"}
                       </td>
 
-                      <td className="budget-cell-negative">
-                        {row.spentThisMonth > 0
-                          ? formatCurrency(-row.spentThisMonth)
-                          : "0,00 €"}
+                      <td className={realizedCellClass}>
+                        {formatCurrency(row.netThisMonth)}
                       </td>
 
-                      <td className={isOver ? "budget-cell-over" : "budget-cell-ok"}>
+                      <td className={deltaCellClass}>
                         {row.monthlyDelta !== null
                           ? formatCurrency(row.monthlyDelta)
                           : "—"}
@@ -412,10 +427,8 @@ export function BudgetPane({
                       <td>
                         <div className="budget-usage-cell">
                           <div className="budget-usage-topline">
-                            <span className="budget-cell-negative">
-                              {row.spentThisMonth > 0
-                                ? formatCurrency(-row.spentThisMonth)
-                                : "0,00 €"}
+                            <span className={realizedCellClass}>
+                              {formatCurrency(row.netThisMonth)}
                             </span>
 
                             <div className="budget-usage-status-group">
@@ -464,9 +477,9 @@ export function BudgetPane({
                               <div
                                 className={usageFillClass}
                                 style={{
-                                  width: `${Math.min(
-                                    row.monthlyUsageRatio * 100,
-                                    100
+                                  width: `${Math.max(
+                                    0,
+                                    Math.min(row.monthlyUsageRatio * 100, 100)
                                   )}%`,
                                 }}
                               />
