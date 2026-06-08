@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Account, Deadline, TransactionView } from "../../../types";
 
 interface AccountsPaneProps {
@@ -19,6 +20,11 @@ function sumAmounts(transactions: TransactionView[]) {
   return transactions.reduce((sum, transaction) => sum + transaction.amount, 0);
 }
 
+interface MenuPosition {
+  top: number;
+  left: number;
+}
+
 export function AccountsPane({
   accounts,
   transactions,
@@ -30,18 +36,53 @@ export function AccountsPane({
   onDeleteAccount,
   onImportAccount,
   formatCurrency,
-}: AccountsPaneProps){
+}: AccountsPaneProps) {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
 
+  // On stocke une ref par bouton "..." pour pouvoir mesurer sa position.
+  const menuTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // Recalcule la position du menu à partir du bouton actif.
+  function updateMenuPosition(accountId: string) {
+    const trigger = menuTriggerRefs.current[accountId];
+    if (!trigger) return;
+
+    const rect = trigger.getBoundingClientRect();
+
+    setMenuPosition({
+      top: rect.bottom + 4,
+      left: rect.right - 140,
+    });
+  }
+
+  // Ferme le menu si on clique ailleurs.
   useEffect(() => {
     if (!openMenuId) return;
 
     const handleClickOutside = () => {
       setOpenMenuId(null);
+      setMenuPosition(null);
     };
 
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
+  }, [openMenuId]);
+
+  // Si le menu est ouvert, on suit le scroll et le resize pour garder le menu aligné.
+  useEffect(() => {
+    if (!openMenuId) return;
+
+    const update = () => updateMenuPosition(openMenuId);
+
+    update();
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
   }, [openMenuId]);
 
   function startOfMonth(date: Date) {
@@ -72,6 +113,7 @@ export function AccountsPane({
     if (monthsDiff < 0) return false;
     if (deadline.frequency === "monthly") return true;
     if (deadline.frequency === "quarterly") return monthsDiff % 3 === 0;
+
     return start.getMonth() === targetMonth.getMonth();
   }
 
@@ -92,81 +134,106 @@ export function AccountsPane({
       .reduce((sum, deadline) => sum - Math.abs(deadline.amount), 0);
   }
 
+  const openAccount = openMenuId
+    ? accounts.find((account) => account.id === openMenuId) ?? null
+    : null;
+
   return (
-    <aside className="accounts-pane">
-      <div className="pane-header">
-        <div>
-          <p className="pane-kicker">Comptes</p>
-          <h2>Banques & soldes</h2>
+    <>
+      <aside className="accounts-pane">
+        <div className="pane-header">
+          <div>
+            <p className="pane-kicker">Comptes</p>
+            <h2>Banques & soldes</h2>
+          </div>
+          <span className="pane-badge">{accounts.length}</span>
         </div>
-        <span className="pane-badge">{accounts.length}</span>
-      </div>
 
-      <div className="accounts-list">
-        {loading ? (
-          <p className="empty-state">Chargement des comptes…</p>
-        ) : accounts.length === 0 ? (
-          <p className="empty-state">Aucun compte pour le moment.</p>
-        ) : (
+        <div className="accounts-list">
+          {loading ? (
+            <p className="empty-state">Chargement des comptes…</p>
+          ) : accounts.length === 0 ? (
+            <p className="empty-state">Aucun compte pour le moment.</p>
+          ) : (
+            accounts.map((account) => {
+              const accountTransactions = transactions.filter(
+                (transaction) => transaction.accountId === account.id
+              );
 
-          accounts.map((account) => {
-            const accountTransactions = transactions.filter(
-              (transaction) => transaction.accountId === account.id
-            );
+              const clearedTransactions = accountTransactions.filter(
+                (transaction) => Boolean(transaction.clearedAt)
+              );
 
-            const clearedTransactions = accountTransactions.filter(
-              (transaction) => Boolean(transaction.clearedAt)
-            );
-            const unclearedTransactions = accountTransactions.filter(
-              (transaction) => !transaction.clearedAt
-            );
+              const unclearedTransactions = accountTransactions.filter(
+                (transaction) => !transaction.clearedAt
+              );
 
-            const currentMonth = new Date();
+              const currentMonth = new Date();
 
-            const remainingDeadlinesAmount = getRemainingMonthlyDeadlineAmount(
-              deadlines,
-              account.id,
-              currentMonth
-            );
+              const remainingDeadlinesAmount = getRemainingMonthlyDeadlineAmount(
+                deadlines,
+                account.id,
+                currentMonth
+              );
 
-            const clearedAmount = sumAmounts(clearedTransactions);
-            const forecastAmount = sumAmounts(accountTransactions);
-            const upcomingEntries =
-              sumAmounts(unclearedTransactions) + remainingDeadlinesAmount;
+              const clearedAmount = sumAmounts(clearedTransactions);
+              const forecastAmount = sumAmounts(accountTransactions);
 
-            const currentBalance = account.openingBalance + clearedAmount;
-            const forecastBalance =
-              account.openingBalance + forecastAmount + remainingDeadlinesAmount;
+              const upcomingEntries =
+                sumAmounts(unclearedTransactions) + remainingDeadlinesAmount;
 
-            return (
-              <div
-                key={account.id}
-                className={
-                  selectedAccountId === account.id
-                    ? "account-card active"
-                    : "account-card"
-                }
-              >
-                <button
-                  className="account-select-btn"
+              const currentBalance = account.openingBalance + clearedAmount;
+
+              const forecastBalance =
+                account.openingBalance + forecastAmount + remainingDeadlinesAmount;
+
+              const isActive = selectedAccountId === account.id;
+
+              return (
+                <div
+                  key={account.id}
+                  className={isActive ? "account-card active" : "account-card"}
                   onClick={() => onSelectAccount(account.id)}
-                  type="button"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelectAccount(account.id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={isActive}
                 >
                   <div className="account-card-top">
-                    <div>
-                      <p className="account-name">{account.name}</p>
+                    <div className="account-select-btn">
+                      <div>
+                        <p className="account-name">{account.name}</p>
+                      </div>
                     </div>
 
-                    <div className="account-menu-wrapper">
+                    <div
+                      className="account-menu-wrapper"
+                      onClick={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                    >
                       <button
+                        ref={(element) => {
+                          menuTriggerRefs.current[account.id] = element;
+                        }}
                         className="account-menu-trigger"
                         type="button"
                         aria-label="Options du compte"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setOpenMenuId(
-                            openMenuId === account.id ? null : account.id
-                          );
+
+                          if (openMenuId === account.id) {
+                            setOpenMenuId(null);
+                            setMenuPosition(null);
+                            return;
+                          }
+
+                          setOpenMenuId(account.id);
+                          updateMenuPosition(account.id);
                         }}
                       >
                         <svg
@@ -180,79 +247,100 @@ export function AccountsPane({
                           <circle cx="8" cy="13" r="1.5" />
                         </svg>
                       </button>
-
-                      {openMenuId === account.id && (
-                        <div className="account-dropdown">
-                          <button
-                            className="dropdown-item"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onImportAccount(account);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            Importer un TSV
-                          </button>
-                          <button
-                            className="dropdown-item"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onEditAccount(account);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            Modifier
-                          </button>
-                          <button
-                            className="dropdown-item danger"
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              onDeleteAccount(account);
-                              setOpenMenuId(null);
-                            }}
-                          >
-                            Supprimer
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
 
-                  <div className="account-totals-row">
-                    <div className="account-total-chip is-current">
-                      <p className="account-total-label">Actuel</p>
-                      <p className="account-total-value highlight">
-                        {formatCurrency(currentBalance, account.currency)}
-                      </p>
-                    </div>
+                  <div className="account-select-btn account-select-btn-body">
+                    <div className="account-totals-row">
+                      <div className="account-total-chip is-current">
+                        <p className="account-total-label">Actuel</p>
+                        <p className="account-total-value highlight">
+                          {formatCurrency(currentBalance, account.currency)}
+                        </p>
+                      </div>
 
-                    <div className="account-total-chip is-forecast">
-                      <p className="account-total-label">Prévision</p>
-                      <p className="account-total-value">
-                        {formatCurrency(forecastBalance, account.currency)}
-                      </p>
-                    </div>
+                      <div className="account-total-chip is-forecast">
+                        <p className="account-total-label">Prévision</p>
+                        <p className="account-total-value">
+                          {formatCurrency(forecastBalance, account.currency)}
+                        </p>
+                      </div>
 
-                    <div className="account-total-chip is-upcoming">
-                      <p className="account-total-label">À venir</p>
-                      <p
-                        className={`account-total-value ${
-                          upcomingEntries < 0 ? "negative" : upcomingEntries > 0 ? "positive" : "subtle"
-                        }`}
-                      >
-                        {formatCurrency(upcomingEntries, account.currency)}
-                      </p>
+                      <div className="account-total-chip is-upcoming">
+                        <p className="account-total-label">À venir</p>
+                        <p
+                          className={`account-total-value ${
+                            upcomingEntries < 0
+                              ? "negative"
+                              : upcomingEntries > 0
+                              ? "positive"
+                              : "subtle"
+                          }`}
+                        >
+                          {formatCurrency(upcomingEntries, account.currency)}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </button>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </aside>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </aside>
+
+      {openMenuId && openAccount && menuPosition
+        ? createPortal(
+            <div
+              className="account-dropdown account-dropdown-portal"
+              style={{
+                position: "fixed",
+                top: menuPosition.top,
+                left: menuPosition.left,
+                zIndex: 2000,
+              }}
+              onClick={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+            >
+              <button
+                className="dropdown-item"
+                type="button"
+                onClick={() => {
+                  onImportAccount(openAccount);
+                  setOpenMenuId(null);
+                  setMenuPosition(null);
+                }}
+              >
+                Importer un TSV
+              </button>
+
+              <button
+                className="dropdown-item"
+                type="button"
+                onClick={() => {
+                  onEditAccount(openAccount);
+                  setOpenMenuId(null);
+                  setMenuPosition(null);
+                }}
+              >
+                Modifier
+              </button>
+
+              <button
+                className="dropdown-item danger"
+                type="button"
+                onClick={() => {
+                  onDeleteAccount(openAccount);
+                  setOpenMenuId(null);
+                  setMenuPosition(null);
+                }}
+              >
+                Supprimer
+              </button>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
