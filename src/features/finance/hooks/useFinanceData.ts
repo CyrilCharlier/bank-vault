@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Account,
   Deadline,
@@ -48,6 +48,16 @@ export function useFinanceData({
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [loading, setLoading] = useState(true);
+  const selectedAccountIdRef = useRef(selectedAccountId);
+  const transactionAccountIdRef = useRef(transactionAccountId);
+
+  useEffect(() => {
+    selectedAccountIdRef.current = selectedAccountId;
+  }, [selectedAccountId]);
+
+  useEffect(() => {
+    transactionAccountIdRef.current = transactionAccountId;
+  }, [transactionAccountId]);
 
   async function reloadData(successMessage?: string) {
     try {
@@ -70,26 +80,39 @@ export function useFinanceData({
       setPaymentMethods(paymentMethodsData);
       setDeadlines(deadlinesData);
 
+      const currentSelectedAccountId = selectedAccountIdRef.current;
+      const currentTransactionAccountId = transactionAccountIdRef.current;
+
       if (accountsData.length > 0) {
         const stillExists = accountsData.some(
-          (account) => account.id === selectedAccountId
+          (account) => account.id === currentSelectedAccountId
         );
 
         const nextSelectedId =
-          stillExists && selectedAccountId ? selectedAccountId : accountsData[0].id;
+          stillExists && currentSelectedAccountId
+            ? currentSelectedAccountId
+            : accountsData[0].id;
 
-        onSelectedAccountChange(nextSelectedId);
+        if (nextSelectedId !== currentSelectedAccountId) {
+          onSelectedAccountChange(nextSelectedId);
+        }
 
         const transactionAccountStillExists = accountsData.some(
-          (account) => account.id === transactionAccountId
+          (account) => account.id === currentTransactionAccountId
         );
 
-        if (!transactionAccountId || !transactionAccountStillExists) {
+        if (
+          !currentTransactionAccountId ||
+          !transactionAccountStillExists
+        ) {
           onTransactionAccountChange(nextSelectedId);
         }
       } else {
-        onSelectedAccountChange(null);
-        if (transactionAccountId) {
+        if (currentSelectedAccountId !== null) {
+          onSelectedAccountChange(null);
+        }
+
+        if (currentTransactionAccountId) {
           onTransactionAccountChange("");
         }
       }
