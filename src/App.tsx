@@ -43,19 +43,18 @@ import {
 } from "./db";
 import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
+import { StatisticsPane } from "./features/finance/components/StatisticsPane";
 
 type FilterMode = "all" | "account";
 type MessageType = "success" | "error" | "info";
-type MainView = "transactions" | "budget" | "deadlines";
+type MainView = "transactions" | "budget" | "deadlines" | "statistics";
 
 function App() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<MessageType>("info");
-
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [mainView, setMainView] = useState<MainView>("transactions");
-
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
@@ -66,48 +65,30 @@ function App() {
   const [showDeadlineModal, setShowDeadlineModal] = useState(false);
   const [editingDeadlineId, setEditingDeadlineId] = useState<string | null>(null);
   const [deadlineToDelete, setDeadlineToDelete] = useState<Deadline | null>(null);
-
   const [deadlineLabel, setDeadlineLabel] = useState("");
   const [deadlineAmount, setDeadlineAmount] = useState("");
   const [deadlineCurrency, setDeadlineCurrency] = useState("EUR");
   const [deadlineAccountId, setDeadlineAccountId] = useState("");
   const [deadlineCategoryId, setDeadlineCategoryId] = useState("");
-  const [deadlineFrequency, setDeadlineFrequency] =
-    useState<DeadlineFrequency>("monthly");
+  const [deadlineFrequency, setDeadlineFrequency] = useState<DeadlineFrequency>("monthly");
   const [deadlineDayOfMonth, setDeadlineDayOfMonth] = useState("1");
-  const [deadlineStartDate, setDeadlineStartDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [deadlineStartDate, setDeadlineStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [deadlineEndDate, setDeadlineEndDate] = useState("");
   const [deadlineNotes, setDeadlineNotes] = useState("");
-  const [deadlineAutoCreateTransaction, setDeadlineAutoCreateTransaction] =
-    useState(true);
-
-  const [selectedBudgetYear, setSelectedBudgetYear] = useState(
-    new Date().getFullYear()
-  );
+  const [deadlineAutoCreateTransaction, setDeadlineAutoCreateTransaction] = useState(true);
+  const [selectedBudgetYear, setSelectedBudgetYear] = useState(new Date().getFullYear());
   const [selectedBudgetCategoryId, setSelectedBudgetCategoryId] = useState<string | null>(null);
-
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
-  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(
-    null
-  );
-
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<Account | null>(null);
-  const [transactionToDelete, setTransactionToDelete] =
-    useState<TransactionView | null>(null);
-
+  const [transactionToDelete, setTransactionToDelete] = useState<TransactionView | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-
   const [accountName, setAccountName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("checking");
   const [currency, setCurrency] = useState("EUR");
   const [openingBalance, setOpeningBalance] = useState("0");
-
   const [transactionAccountId, setTransactionAccountId] = useState("");
-  const [transactionDate, setTransactionDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [transactionDate, setTransactionDate] = useState(new Date().toISOString().slice(0, 10));
   const [transactionAmount, setTransactionAmount] = useState("");
   const [transactionLabel, setTransactionLabel] = useState("");
   const [transactionCategoryId, setTransactionCategoryId] = useState("");
@@ -115,9 +96,9 @@ function App() {
   const [transactionClearedAt, setTransactionClearedAt] = useState("");
   const [transactionReference, setTransactionReference] = useState("");
   const [transactionPaymentMethodId, setTransactionPaymentMethodId] = useState("");
-
   const [showBudgetModal, setShowBudgetModal] = useState(false);
-
+  const [showManageMenu, setShowManageMenu] = useState(false);
+  const manageMenuRef = useRef<HTMLDivElement | null>(null);
   const {
     accounts,
     transactions,
@@ -151,7 +132,6 @@ function App() {
       setMessageType("error");
     },
   });
-
   const {
     searchTerm,
     setSearchTerm,
@@ -174,9 +154,6 @@ function App() {
     selectedAccountId,
     filterMode,
   });
-
-  const [showManageMenu, setShowManageMenu] = useState(false);
-  const manageMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -268,16 +245,6 @@ function App() {
     showDeadlineModal,
     deadlineToDelete,
   ]);
-
-  async function loadCategories() {
-    try {
-      const data = await listCategories();
-      setCategories(data);
-    } catch {
-      setMessage("Impossible de charger les catégories.");
-      setMessageType("error");
-    }
-  }
 
   function resetAccountForm() {
     setEditingAccountId(null);
@@ -417,6 +384,30 @@ function App() {
 
   function openDeleteDeadlineModal(deadline: Deadline) {
     setDeadlineToDelete(deadline);
+  }
+
+  function mapPaymentMethodKind(label: string): PaymentMethodKind {
+    const normalized = label.trim().toLowerCase();
+
+    if (normalized === "carte") return "card";
+    if (normalized === "prélèvement") return "direct_debit";
+    if (normalized === "virement") return "transfer";
+    if (normalized === "chèque") return "cheque";
+    if (normalized === "cheque") return "cheque";
+    if (normalized === "espèces") return "cash";
+    if (normalized === "especes") return "cash";
+
+    return "other";
+  }
+
+  async function loadCategories() {
+    try {
+      const data = await listCategories();
+      setCategories(data);
+    } catch {
+      setMessage("Impossible de charger les catégories.");
+      setMessageType("error");
+    }
   }
 
   async function handleImportAccount(account: Account) {
@@ -870,20 +861,6 @@ function App() {
     return created?.id ?? null;
   }
 
-  function mapPaymentMethodKind(label: string): PaymentMethodKind {
-    const normalized = label.trim().toLowerCase();
-
-    if (normalized === "carte") return "card";
-    if (normalized === "prélèvement") return "direct_debit";
-    if (normalized === "virement") return "transfer";
-    if (normalized === "chèque") return "cheque";
-    if (normalized === "cheque") return "cheque";
-    if (normalized === "espèces") return "cash";
-    if (normalized === "especes") return "cash";
-
-    return "other";
-  }
-
   async function resolvePaymentMethodId(
     paymentMethodName: string,
     paymentMethods: PaymentMethod[],
@@ -1066,10 +1043,6 @@ function App() {
         <div className="toolbar-brand">
           <div className="brand-chip">
             <span className="brand-logo">€</span>
-            <div className="brand-copy">
-              <p className="brand-overline">BANK VAULT</p>
-              <h1>Comptes & opérations</h1>
-            </div>
           </div>
 
           <nav className="toolbar-nav" aria-label="Navigation principale">
@@ -1099,6 +1072,16 @@ function App() {
               onClick={() => setMainView("deadlines")}
             >
               Échéances
+            </button>
+
+            <button
+              type="button"
+              className={mainView === "statistics" 
+                ? "toolbar-nav-btn is-active"
+                : "toolbar-nav-btn"}
+              onClick={() => setMainView("statistics")}
+            >
+              Statistiques
             </button>
           </nav>
         </div>
@@ -1254,6 +1237,17 @@ function App() {
             onToggleTransactionCleared={handleToggleTransactionCleared}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
+          />
+        ) : mainView === "statistics" ? (
+          <StatisticsPane
+            accounts={accounts}
+            categories={categories}
+            transactions={transactions}
+            deadlines={deadlines}
+            paymentMethods={paymentMethods}
+            filterMode={filterMode}
+            selectedAccountId={selectedAccountId}
+            formatCurrency={formatCurrency}
           />
         ) : mainView === "budget" ? (
           <BudgetPane
