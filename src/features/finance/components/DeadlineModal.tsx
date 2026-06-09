@@ -46,7 +46,6 @@ export default function DeadlineModal({
   startDate,
   endDate,
   notes,
-  autoCreateTransaction,
   onClose,
   onSubmit,
   setLabel,
@@ -59,10 +58,9 @@ export default function DeadlineModal({
   setStartDate,
   setEndDate,
   setNotes,
-  setAutoCreateTransaction,
 }: DeadlineModalProps) {
   if (!open) return null;
-  
+
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -72,12 +70,13 @@ export default function DeadlineModal({
         aria-label={title}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="modal-header">
+        <div className="modal-header deadline-modal__header">
           <div>
             <p className="modal-eyebrow">Échéances</p>
             <h2>{title}</h2>
             <p className="deadline-modal-subtitle">
-              Une vue mensuelle claire, avec fréquence, jour d’exécution et suivi simple.
+              Définis le rythme, le compte associé et la période d’application de
+              cette échéance.
             </p>
           </div>
 
@@ -91,99 +90,102 @@ export default function DeadlineModal({
           </button>
         </div>
 
-        <form className="modal-form deadline-modal-form stack-form" onSubmit={onSubmit}>
-          <div className="deadline-form-grid">
-            <label className="field deadline-field deadline-field--wide">
-              <span>Libellé</span>
-              <input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                placeholder="Ex. Loyer"
-                required
-              />
-            </label>
+        <form className="deadline-modal__form" onSubmit={onSubmit}>
+          <div className="deadline-modal__body">
+            <div className="deadline-form-grid deadline-form-grid--identity">
+              <label className="field deadline-field deadline-field--label">
+                <span>Libellé</span>
+                <input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="Ex. Loyer"
+                  required
+                />
+              </label>
 
-            <label className="field deadline-field">
-              <span>Montant</span>
-              <input
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                inputMode="decimal"
-                placeholder="0,00"
-                required
-              />
-            </label>
+              <label className="field deadline-field deadline-field--amount">
+                <span>Montant</span>
+                <input
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  required
+                />
+              </label>
 
-            <label className="field deadline-field deadline-field--currency">
-              <span>Devise</span>
-              <input
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                maxLength={3}
-                placeholder="EUR"
-                required
-              />
-            </label>
+              <label className="field deadline-field deadline-field--currency">
+                <span>Devise</span>
+                <input
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                  maxLength={3}
+                  placeholder="EUR"
+                  required
+                />
+              </label>
+            </div>
 
-            <label className="field deadline-field">
-              <span>Compte</span>
-              <select
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
-                required
-              >
-                <option value="">Sélectionner un compte</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="deadline-form-grid deadline-form-grid--details">
+              <label className="field deadline-field">
+                <span>Compte</span>
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  required
+                >
+                  <option value="">Sélectionner un compte</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field deadline-field">
-              <span>Catégorie</span>
-              <select
-                value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
-              >
-                <option value="">Aucune</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label className="field deadline-field">
+                <span>Catégorie</span>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                >
+                  <option value="">Aucune</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="field deadline-field">
-              <span>Fréquence</span>
-              <select
-                value={frequency}
-                onChange={(e) =>
-                  setFrequency(e.target.value as DeadlineFrequency)
-                }
-              >
-                <option value="monthly">Mensuelle</option>
-                <option value="quarterly">Trimestrielle</option>
-                <option value="annual">Annuelle</option>
-              </select>
-            </label>
+              <label className="field deadline-field">
+                <span>Fréquence</span>
+                <select
+                  value={frequency}
+                  onChange={(e) => setFrequency(e.target.value as DeadlineFrequency)}
+                >
+                  <option value="monthly">Mensuelle</option>
+                  <option value="quarterly">Trimestrielle</option>
+                  <option value="annual">Annuelle</option>
+                </select>
+              </label>
+            </div>
 
-            <label className="field deadline-field deadline-field--day">
-              <span>Jour du mois</span>
-              <input
-                type="number"
-                min="1"
-                max="31"
-                value={dayOfMonth}
-                onChange={(e) => setDayOfMonth(e.target.value)}
-                required
-              />
-            </label>
+            <div className="deadline-form-grid deadline-form-grid--dates">
+              <label className="field deadline-field deadline-field--day">
+                <span>Jour du mois</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={dayOfMonth}
+                  onChange={(e) => setDayOfMonth(e.target.value)}
+                  required
+                />
+              </label>
 
-            <label className="field deadline-field">
-              <span>Date de début</span>
+              <label className="field deadline-field">
+                <span>Date de début</span>
                 <input
                   type="date"
                   value={startDate}
@@ -191,42 +193,31 @@ export default function DeadlineModal({
                   onKeyDown={(e) => e.preventDefault()}
                   required
                 />
-            </label>
+              </label>
 
-            <label className="field deadline-field">
-              <span>Date de fin</span>
+              <label className="field deadline-field">
+                <span>Date de fin</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   onKeyDown={(e) => e.preventDefault()}
                 />
+              </label>
+            </div>
+
+            <label className="field deadline-field deadline-field--notes">
+              <span>Notes</span>
+              <textarea
+                rows={4}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Ex. Appartement, contrat annuel, échéance bancaire…"
+              />
             </label>
           </div>
 
-          <label className="deadline-toggle">
-            <input
-              type="checkbox"
-              checked={autoCreateTransaction}
-              onChange={(e) => setAutoCreateTransaction(e.target.checked)}
-            />
-            <span className="deadline-toggle-copy">
-              <strong>Créer automatiquement la transaction</strong>
-              <small>Pratique pour les prélèvements et paiements récurrents.</small>
-            </span>
-          </label>
-
-          <label className="field deadline-field deadline-field--notes">
-            <span>Notes</span>
-            <textarea
-              rows={4}
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Ex. Appartement, contrat annuel, échéance bancaire…"
-            />
-          </label>
-
-          <div className="modal-actions">
+          <div className="modal-actions deadline-modal__footer">
             <button
               type="button"
               className="toolbar-secondary-btn"
